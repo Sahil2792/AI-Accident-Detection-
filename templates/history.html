@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+
+{% block title %}Detection History | AI Accident Detection{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm rounded-4 overflow-visible">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h4 class="fw-bold">Detection History</h4>
+            <div class="d-flex gap-2 flex-wrap">
+                <form class="d-flex gap-2" method="get" action="{{ url_for('main.history') }}">
+                    <input type="text" class="form-control" name="search" placeholder="Search" value="{{ request.args.get('search', '') }}">
+                    <select class="form-select" name="filter" onchange="this.form.submit()">
+                        <option value="" {% if not active_filter %}selected{% endif %}>All</option>
+                        <option value="accident" {% if active_filter == 'accident' %}selected{% endif %}>Accident</option>
+                        <option value="non_accident" {% if active_filter == 'non_accident' %}selected{% endif %}>Non Accident</option>
+                    </select>
+                </form>
+                <form method="post" action="{{ url_for('main.delete_all_detections') }}" onsubmit="return confirm('Delete ALL detection history records? This cannot be undone.');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete All</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive overflow-visible">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Media</th>
+                        <th>Severity</th>
+                        <th>Screenshot</th>
+                        <th>Date & Time</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in detections %}
+                    <tr>
+                        <td>{{ item.row_number or loop.index }}</td>
+                        <td style="min-width:220px; max-width:320px;">
+                            {# Compact, truncated title with metadata access #}
+                            {% set raw_title = item.title or '' %}
+                            {% set short_title = raw_title %}
+                            {# If title looks like a path, show basename only #}
+                            {% if '/' in raw_title or '\\' in raw_title %}
+                                {% set short_title = raw_title.split('/')[-1].split('\\')[-1] %}
+                            {% endif %}
+
+                            <div class="fw-semibold text-truncate" style="max-width:260px;">{{ short_title }}</div>
+
+                            {# Show a compact subtitle line for quick context #}
+                            {% if item.media_type %}
+                                <div class="text-muted small">{{ item.media_type }} • {{ item.detection_type }}</div>
+                            {% elif item.summary_text %}
+                                <div class="text-muted small">{{ item.summary_text.split('\n')[0] }}</div>
+                            {% endif %}
+
+                            {# Metadata / full-title button (opens modal) - only when extra metadata exists #}
+                            {% set has_meta = false %}
+                            {% if item.session_summary %}
+                                {% set has_meta = true %}
+                            {% elif item.object_counts %}
+                                {% set has_meta = true %}
+                            {% elif item.title and (item.title|length) > 60 %}
+                                {% set has_meta = true %}
+                            {% endif %}
+
+                            {% if has_meta %}
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary mt-1 js-show-metadata"
+                                    data-title="{{ short_title }}"
+                                    data-meta='{{ (item.session_summary or item.object_counts or item.title)|tojson|replace("\n"," ") }}'
+                                >
+                                    <i class="bi bi-info-circle"></i> Details
+                                </button>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.detection_type }}</td>
+                        <td>{{ item.media_type or 'N/A' }}</td>
+                        <td>
+                            {% set sev = (item.severity or 'low')|lower %}
+                            {% if sev == 'high' %}
+                                <span class="badge bg-danger">High</span>
+                            {% elif sev == 'medium' %}
+                                <span class="badge bg-warning text-dark">Medium</span>
+                            {% else %}
+                                <span class="badge bg-success">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.screenshot_url %}
+                                <button type="button" class="btn btn-sm btn-outline-danger js-view-image"
+                                        data-title="{{ item.title }} - Accident Screenshot"
+                                        data-image="{{ item.screenshot_url }}">
+                                    <i class="bi bi-camera"></i> View
+                                </button>
+                            {% else %}
+                                <span class="text-muted small">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.recorded_at or item.created_at }}</td>
+                        <td>{{ item.accident_confidence_percent }}</td>
+                        <td>
+                            {% if item.accident_status %}
+                                <span class="badge bg-success">{{ item.accident_status }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ item.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Actions">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end actions-dropdown">
+                                    <li>
+                                        {% if item.original_image_url %}
+                                        <a class="dropdown-item js-view-image" href="#" data-title="{{ item.title }} - Original" data-image="{{ item.original_image_url }}"><i class="bi bi-eye me-2"></i>View Original</a>
+                                        {% else %}
+                                        <a class="dropdown-item disabled" href="#" tabindex="-1" aria-disabled="true" title="Original file not available on server"><i class="bi bi-eye me-2"></i>View Original</a>
+                                        {% endif %}
+                                    </li>
+                                    <li>
+                                        {% if item.original_download_path %}
+                                        <a class="dropdown-item" href="{{ url_for('download_file', filename=item.original_download_path) }}" download><i class="bi bi-download me-2"></i>Download Original</a>
+                                        {% else %}
+                                        <a class="dropdown-item disabled" href="#" tabindex="-1" aria-disabled="true" title="Original file not available on server"><i class="bi bi-download me-2"></i>Download Original</a>
+                                        {% endif %}
+                                    </li>
+                                    <li>
+                                        {% if item.detected_image_url %}
+                                        <a class="dropdown-item js-view-image" href="#" data-title="{{ item.title }} - Detected" data-image="{{ item.detected_image_url }}"><i class="bi bi-image me-2"></i>View Detected</a>
+                                        {% else %}
+                                        <a class="dropdown-item disabled" href="#" tabindex="-1" aria-disabled="true" title="Detected file not available on server"><i class="bi bi-image me-2"></i>View Detected</a>
+                                        {% endif %}
+                                    </li>
+                                    <li>
+                                        {% if item.detected_download_path %}
+                                        <a class="dropdown-item" href="{{ url_for('download_file', filename=item.detected_download_path) }}" download><i class="bi bi-file-earmark-arrow-down me-2"></i>Download Detected</a>
+                                        {% else %}
+                                        <a class="dropdown-item disabled" href="#" tabindex="-1" aria-disabled="true" title="Detected file not available on server"><i class="bi bi-file-earmark-arrow-down me-2"></i>Download Detected</a>
+                                        {% endif %}
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('main.generate_report', detection_id=item.id) }}"><i class="bi bi-file-earmark-pdf me-2"></i>Generate PDF Report</a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form class="actions-delete-form" method="post" action="{{ url_for('main.delete_detection', detection_id=item.id) }}" onsubmit="return confirm('Delete this detection history record?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger w-100 actions-delete-btn"><i class="bi bi-trash me-2"></i>Delete</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" class="text-center text-muted">No detections found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    <!-- Metadata Modal -->
+    <div class="modal fade" id="metadataModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="metadataModalLabel">Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="metadataModalPre" class="small bg-light p-3 rounded-3" style="max-height:60vh; overflow:auto; white-space:pre-wrap;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="imagePreviewModalLabel">Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <img id="imagePreviewModalImg" src="" alt="Preview" class="img-fluid rounded-4 w-100 d-none">
+                    <video id="videoPreviewModalVideo" controls preload="auto" class="w-100 rounded-4 d-none" style="max-height: 70vh;">
+                        <source id="videoPreviewModalSource" src="" type="video/mp4">
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Metadata modal handlers
+            const metadataModal = document.getElementById('metadataModal');
+            const metadataModalLabel = document.getElementById('metadataModalLabel');
+            const metadataModalPre = document.getElementById('metadataModalPre');
+            if (metadataModal && metadataModalPre && metadataModalLabel) {
+                const openMeta = function () {
+                    if (window.openModal) { window.openModal(metadataModal); }
+                    else if (window.bootstrap && window.bootstrap.Modal) { bootstrap.Modal.getOrCreateInstance(metadataModal).show(); }
+                };
+                document.querySelectorAll('.js-show-metadata').forEach(function (btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const title = this.getAttribute('data-title') || 'Details';
+                        const raw = this.getAttribute('data-meta') || '';
+                        let pretty = raw;
+                        try {
+                            const parsed = JSON.parse(raw);
+                            pretty = JSON.stringify(parsed, null, 2);
+                        } catch (err) {
+                            // not JSON — just show raw string
+                        }
+                        metadataModalLabel.textContent = title;
+                        metadataModalPre.textContent = pretty;
+                        openMeta();
+                    });
+                });
+            }
+
+            // Explicit close handler for the × buttons on BOTH modals.
+            // Bootstrap's data-bs-dismiss data API can silently do nothing here,
+            // so we close the modal directly via its Bootstrap instance.
+            document.querySelectorAll('#metadataModal .btn-close, #imagePreviewModal .btn-close').forEach(function (closeBtn) {
+                closeBtn.addEventListener('click', function () {
+                    const modalEl = this.closest('.modal');
+                    if (!modalEl) return;
+                    if (window.closeModal) { window.closeModal(modalEl); }
+                    else if (window.bootstrap && window.bootstrap.Modal) {
+                        const instance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                        instance.hide();
+                    }
+                });
+            });
+        });
+    </script>
+
+    {% endblock %}

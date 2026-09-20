@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports | AI Accident Detection{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm rounded-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+            <h4 class="fw-bold">Reports</h4>
+            <div class="d-flex gap-2">
+                <form method="post" action="{{ url_for('main.generate_report_post') }}" class="d-flex g-2 align-items-center">
+                    <select name="detection_id" class="form-select form-select-sm me-2" required>
+                        <option value="">Select detection to generate report</option>
+                        {% for d in recent_detections %}
+                            <option value="{{ d.id }}">#{{ d.id }} — {{ d.title[:60] }}{% if d.created_at %} ({{ d.created_at }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm">Generate PDF</button>
+                </form>
+                <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.export_reports_csv') }}">Export CSV</a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Created At</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if reports %}
+                        {% for rpt in reports %}
+                        <tr>
+                            <td>{{ rpt.filename }}</td>
+                            <td>{{ rpt.created_at }}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.download_report_file', filename=rpt.filename) }}"><i class="bi bi-download"></i> Download</a>
+                                {% if session.get('role') == 'admin' %}
+                                <form method="post" action="{{ url_for('main.delete_report_file', filename=rpt.filename) }}" style="display:inline-block" onsubmit="return confirm('Delete this report?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="3" class="text-center text-muted">No reports generated yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

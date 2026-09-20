@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Recording | AI Accident Detection{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm rounded-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="fw-bold mb-1">Webcam Recording</h4>
+                <p class="text-muted mb-0">{{ detection.title }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" href="{{ url_for('main.history') }}">Back</a>
+                <a class="btn btn-outline-primary" href="{{ url_for('main.download_recording', detection_id=detection.id) }}">Download MP4</a>
+            </div>
+        </div>
+
+        <div class="border rounded-4 bg-dark text-center overflow-hidden">
+            <video class="w-100" style="max-height: 650px; object-fit: contain;" controls autoplay muted playsinline src="{{ url_for('main.recording_video_feed', detection_id=detection.id) }}">
+                Your browser does not support HTML5 video playback.
+            </video>
+        </div>
+
+        <div class="row g-3 mt-2">
+            <div class="col-md-3">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Duration</h6>
+                        <h4 class="fw-bold">{{ detection.duration or 0 }}s</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Confidence</h6>
+                        <h4 class="fw-bold">{{ '%.2f'|format((detection.confidence or 0) * 100) }}%</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Severity</h6>
+                        {% set sev = (detection.severity or 'low')|lower %}
+                        {% if sev == 'high' %}
+                            <span class="badge bg-danger fs-6">High</span>
+                        {% elif sev == 'medium' %}
+                            <span class="badge bg-warning text-dark fs-6">Medium</span>
+                        {% else %}
+                            <span class="badge bg-success fs-6">Low</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">Objects</h6>
+                        <h4 class="fw-bold">{{ detection.total_objects or 0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if detection.screenshot_path %}
+        <div class="mt-3">
+            <h6 class="fw-bold">Accident Screenshot</h6>
+            <img src="{{ url_for('static', filename=detection.screenshot_path) }}"
+                 alt="Accident screenshot"
+                 class="img-fluid rounded-4 border"
+                 style="max-height: 420px;">
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

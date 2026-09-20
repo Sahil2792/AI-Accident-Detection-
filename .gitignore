@@ -1,0 +1,12 @@
+﻿# --- Secrets / credentials ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+
+# --- Runtime artifacts ---
+server_out.log
+server_err.log
+.pytest_cache/

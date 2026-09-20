@@ -1,0 +1,743 @@
+/* ==========================================================================
+   AI Accident Detection — Theme System
+   Light (default) & Dark themes driven entirely by CSS custom properties.
+   Toggle: html[data-theme="light" | "dark"]  (persisted in localStorage
+   under the key "site-theme" by static/js/app.js).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design Tokens
+   -------------------------------------------------------------------------- */
+:root {
+    /* Brand */
+    --primary: #1f4ed8;
+    --primary-soft: rgba(31, 78, 216, 0.08);
+    --secondary: #0f172a;
+
+    /* Surfaces */
+    --bg: #f4f7fb;
+    --surface: #ffffff;
+    --surface-alt: #f8fafc;
+
+    /* Text */
+    --text: #1f2937;
+    --text-muted: #64748b;
+
+    /* Lines & effects */
+    --border-color: #e2e8f0;
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 8px 25px rgba(15, 23, 42, 0.12);
+    --hover-tint: rgba(31, 78, 216, 0.04);
+
+    /* Forms */
+    --input-bg: #ffffff;
+    --input-border: #dee2e6;
+    --input-placeholder: #94a3b8;
+
+    color-scheme: light;
+}
+
+html[data-theme="dark"] {
+    /* Brand */
+    --primary: #60a5fa;
+    --primary-soft: rgba(96, 165, 250, 0.12);
+    --secondary: #0b1220;
+
+    /* Surfaces — sleek slate tones matching the sidebar (#0f172a family) */
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-alt: #243247;
+
+    /* Text — crisp white / light gray */
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+
+    /* Lines & effects */
+    --border-color: #334155;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.45);
+    --hover-tint: rgba(96, 165, 250, 0.10);
+
+    /* Forms */
+    --input-bg: #0f172a;
+    --input-border: #334155;
+    --input-placeholder: #7c8ba1;
+
+    color-scheme: dark;
+
+    /* Feed Bootstrap 5.3 native component tokens so forms, dropdowns,
+       modals, cards and tables re-theme automatically. */
+    --bs-body-bg: #0f172a;
+    --bs-body-color: #f8fafc;
+    --bs-secondary-color: #94a3b8;
+    --bs-tertiary-bg: #1e293b;
+    --bs-border-color: #334155;
+    --bs-emphasis-color: #f8fafc;
+
+    --bs-card-bg: #1e293b;
+    --bs-modal-bg: #1e293b;
+    --bs-dropdown-bg: #1e293b;
+    --bs-dropdown-link-color: #e2e8f0;
+    --bs-dropdown-link-hover-color: #f8fafc;
+    --bs-dropdown-link-hover-bg: #334155;
+
+    --bs-table-bg: transparent;
+}
+
+/* "Blue" accent theme — a light theme with blue-tinted surfaces and a
+   stronger blue brand. Sidebar already renders the blue gradient. */
+html[data-theme="blue"] {
+    /* Brand */
+    --primary: #1f4ed8;
+    --primary-soft: rgba(31, 78, 216, 0.12);
+    --secondary: #0f172a;
+
+    /* Surfaces */
+    --bg: #eaf1fd;
+    --surface: #ffffff;
+    --surface-alt: #f2f7ff;
+
+    /* Text */
+    --text: #1e293b;
+    --text-muted: #5a6b8c;
+
+    /* Lines & effects */
+    --border-color: #c9d9f4;
+    --shadow-sm: 0 1px 3px rgba(30, 58, 138, 0.10);
+    --shadow-lg: 0 8px 25px rgba(30, 58, 138, 0.14);
+    --hover-tint: rgba(31, 78, 216, 0.07);
+
+    /* Forms */
+    --input-bg: #ffffff;
+    --input-border: #b9cef2;
+    --input-placeholder: #7d90b5;
+
+    color-scheme: light;
+
+    /* Bootstrap 5.3 native tokens */
+    --bs-body-bg: #eaf1fd;
+    --bs-body-color: #1e293b;
+    --bs-secondary-color: #5a6b8c;
+    --bs-border-color: #c9d9f4;
+
+    --bs-card-bg: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   2. Base & Smooth Theme Transition
+   -------------------------------------------------------------------------- */
+body,
+.main-content,
+.topbar,
+.card,
+.modal-content,
+.modal-header,
+.modal-footer,
+.dropdown-menu,
+.form-control,
+.form-select,
+.table > :not(caption) > * > *,
+.bg-light,
+.bg-white,
+.placeholder-chart,
+.stat-card {
+    transition: background-color 0.3s ease, color 0.3s ease,
+                border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.main-content {
+    flex: 1;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* --------------------------------------------------------------------------
+   3. Layout — Sidebar / Topbar
+   -------------------------------------------------------------------------- */
+.sidebar {
+    width: 260px;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a, #1e3a8a);
+    color: #fff;
+    padding-top: 1rem;
+}
+
+.sidebar .nav-link {
+    color: #dbeafe;
+    margin-bottom: 0.25rem;
+    border-radius: 10px;
+    transition: 0.2s;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+html[data-theme="dark"] .sidebar {
+    background: linear-gradient(135deg, #071127, #0b1220);
+}
+
+html[data-theme="dark"] .sidebar .nav-link {
+    color: #cfe8ff;
+}
+
+.topbar {
+    background: var(--surface);
+    color: var(--text);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.topbar .fw-semibold {
+    color: var(--text);
+}
+
+/* --------------------------------------------------------------------------
+   4. Cards, Stat Cards & Inner Boxes (bg-light / bg-white utilities)
+   -------------------------------------------------------------------------- */
+.card {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease,
+                background-color 0.3s ease, color 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #eff6ff, #ffffff);
+    color: var(--text);
+}
+
+html[data-theme="dark"] .stat-card {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.10), rgba(30, 41, 59, 0.85));
+}
+
+/* Wallpaper / watermark support (applies in dark mode when a wallpaper is configured) */
+:root {
+    --wallpaper-url: none;
+}
+
+/* Apply wallpaper as the real page background with full fidelity. No translucent overlays or faded layer.
+   When html.has-wallpaper is present we set the document background to the provided image
+   and make page background transparent so the wallpaper shows through at full color.
+*/
+html.has-wallpaper {
+    --wallpaper-active: 1;
+    background-image: var(--wallpaper-url);
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+/* Remove any solid body background so the wallpaper is visible at full color */
+html.has-wallpaper body {
+    background: transparent !important;
+}
+
+/* Ensure main content and UI stay above the wallpaper layer */
+.main-content, .sidebar, .topbar {
+    position: relative;
+    z-index: 1;
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+/* Hardcoded Bootstrap utilities used across image/video/webcam/history pages */
+.bg-light {
+    background-color: var(--surface-alt) !important;
+    color: var(--text);
+}
+
+.bg-white {
+    background-color: var(--surface) !important;
+    color: var(--text);
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.placeholder-chart {
+    min-height: 220px;
+    border: 2px dashed var(--border-color);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: var(--surface-alt);
+}
+
+/* --------------------------------------------------------------------------
+   5. Forms — inputs, selects, uploads
+   -------------------------------------------------------------------------- */
+.form-control,
+.form-select {
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text);
+}
+
+.form-control::placeholder {
+    color: var(--input-placeholder);
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--input-bg);
+    color: var(--text);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem var(--primary-soft);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+    background-color: var(--surface-alt);
+    color: var(--text-muted);
+}
+
+.input-group-text {
+    background-color: var(--surface-alt);
+    border-color: var(--input-border);
+    color: var(--text-muted);
+}
+
+.form-label {
+    color: var(--text);
+}
+
+.form-text {
+    color: var(--text-muted) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5b. File Inputs — theme the native "Choose File" button + filename text.
+   The pseudo-element button does NOT inherit .form-control / CSS variables
+   in every engine, so we style it explicitly for both themes and then
+   re-assert literal dark values under html[data-theme="dark"] (some engines
+   ignore var() inside ::file-selector-button).
+   -------------------------------------------------------------------------- */
+input[type="file"] {
+    color: var(--text);
+    background-color: var(--input-bg);
+}
+
+/* Standard syntax (Chrome/Edge 89+, Firefox 82+, Safari 14+)
+   plus legacy WebKit alias for older builds. */
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
+    background-color: var(--surface-alt);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.9rem;
+    margin: 0.25rem 0.75rem 0.25rem 0;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+input[type="file"]:hover::file-selector-button,
+input[type="file"]:hover::-webkit-file-upload-button,
+input[type="file"]:focus-visible::file-selector-button,
+input[type="file"]:focus-visible::-webkit-file-upload-button {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+}
+
+/* Dark-mode hardening: literal values so no white blocks can appear even if
+   the engine drops custom-property support inside the shadow button. */
+html[data-theme="dark"] input[type="file"] {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f8fafc;
+}
+
+html[data-theme="dark"] input[type="file"]::file-selector-button,
+html[data-theme="dark"] input[type="file"]::-webkit-file-upload-button {
+    background-color: #243247;
+    border-color: #334155;
+    color: #f8fafc;
+}
+
+html[data-theme="dark"] input[type="file"]:hover::file-selector-button,
+html[data-theme="dark"] input[type="file"]:hover::-webkit-file-upload-button,
+html[data-theme="dark"] input[type="file"]:focus-visible::file-selector-button,
+html[data-theme="dark"] input[type="file"]:focus-visible::-webkit-file-upload-button {
+    background-color: #60a5fa;
+    border-color: #60a5fa;
+    color: #0f172a;
+}
+
+/* --------------------------------------------------------------------------
+   6. Modals
+   -------------------------------------------------------------------------- */
+.modal-content {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-header,
+.modal-footer {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-color);
+}
+
+.modal-header .modal-title,
+.modal-body,
+.modal-footer {
+    color: var(--text);
+}
+
+.modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* --------------------------------------------------------------------------
+   Modal stacking & pointer-events safety
+   --------------------------------
+   Modals are reparented to <body> by static/js/app.js so they escape the
+   .main-content stacking context. These rules then guarantee:
+
+   • The modal window and its backdrop are always the top-most layers.
+   • The modal wrapper never swallows clicks meant for the backdrop, while
+     the dialog box and every interactive control (close ×, native video
+     player controls, scrollbars, links) are explicitly clickable.
+   • Background-backdrop clicks dismiss the modal (Bootstrap + fallback).
+   -------------------------------------------------------------------------- */
+.modal-backdrop {
+    z-index: 1900 !important;
+}
+
+.modal {
+    z-index: 2000 !important;
+    pointer-events: none; /* empty modal area lets clicks reach the backdrop */
+}
+
+.modal.show {
+    pointer-events: none;
+}
+
+.modal-dialog,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer {
+    pointer-events: auto;
+}
+
+.modal .btn-close {
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.modal video,
+.modal audio,
+.modal img,
+.modal a,
+.modal button,
+.modal input,
+.modal select,
+.modal textarea {
+    pointer-events: auto;
+}
+
+/* --------------------------------------------------------------------------
+   7. Dropdown Menus
+   -------------------------------------------------------------------------- */
+.dropdown-menu {
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+}
+
+.dropdown-item {
+    color: var(--text);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: var(--hover-tint);
+    color: var(--primary);
+}
+
+.dropdown-divider {
+    border-color: var(--border-color);
+}
+
+/* --------------------------------------------------------------------------
+   Actions dropdown (Detection History rows)
+   Compact, fully-expanded menu - no internal scrollbar, all options visible.
+   -------------------------------------------------------------------------- */
+.actions-dropdown.dropdown-menu {
+    /* Strict relative anchoring to the parent toggle button: the menu is
+       absolutely positioned directly below the three-dot button and, paired
+       with dropdown-menu-end (--bs-position: end), aligned to its right edge.
+       No cursor-based repositioning is ever applied. */
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: auto;
+    z-index: 3000;
+    margin-top: 0.15rem;
+    max-height: none;
+    overflow: visible;
+    min-width: 15rem;
+    padding: 0.4rem 0;
+    border-radius: 0.6rem;
+}
+
+.actions-dropdown .dropdown-item {
+    padding: 0.45rem 1.1rem;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.actions-dropdown .dropdown-item.disabled {
+    opacity: 0.55;
+    pointer-events: none;
+    background-color: transparent;
+    color: var(--text-muted);
+}
+
+.actions-dropdown .dropdown-divider {
+    margin: 0.3rem 0;
+}
+
+.actions-dropdown form.actions-delete-form {
+    margin: 0 0.5rem 0.35rem;
+}
+
+.actions-dropdown .actions-delete-btn {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+}
+
+/* The history card and table wrapper apply Bootstrap's .overflow-visible
+   utility (see templates/history.html) so the strictly-anchored,
+   absolutely-positioned menu is never clipped by the card's default
+   overflow-hidden or the .table-responsive scroll box - the menu stays
+   immovably under its three-dot button, fully visible, with no internal
+   scrollbar, regardless of how many table rows exist. */
+
+/* --------------------------------------------------------------------------
+   8. Tables
+   -------------------------------------------------------------------------- */
+.table {
+    --bs-table-bg: transparent;
+    color: var(--text);
+}
+
+.table > :not(caption) > * > * {
+    background-color: transparent;
+    color: var(--text);
+    border-color: var(--border-color);
+}
+
+.table thead th {
+    color: var(--text-muted);
+    border-bottom-color: var(--border-color);
+}
+
+.table-hover > tbody > tr:hover > * {
+    background-color: var(--hover-tint);
+    color: var(--text);
+}
+
+/* --------------------------------------------------------------------------
+   9. Alerts & Misc Utilities
+   -------------------------------------------------------------------------- */
+.alert {
+    border-color: var(--border-color);
+}
+
+.border,
+.border-top,
+.border-bottom,
+.border-start,
+.border-end {
+    border-color: var(--border-color) !important;
+}
+
+hr {
+    border-color: var(--border-color);
+    opacity: 1;
+}
+
+.list-group-item {
+    background-color: var(--surface);
+    color: var(--text);
+    border-color: var(--border-color);
+}
+
+@media (max-width: 991px) {
+    .sidebar {
+        position: fixed;
+        left: -260px;
+        z-index: 1000;
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.show {
+        left: 0;
+    }
+}
+
+/* Detection History Table Styles */
+#detectionsTable {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#detectionsTable tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+#detectionsTable tbody tr:hover {
+    background-color: rgba(31, 78, 216, 0.04);
+}
+
+/* View Detection Button - Prevent Flickering */
+.view-detection-btn {
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    pointer-events: auto;
+}
+
+.view-detection-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(31, 78, 216, 0.2);
+}
+
+.view-detection-btn:active {
+    transform: translateY(0);
+}
+
+/* Detection Row - Stable Layout */
+.detection-row {
+    will-change: background-color;
+}
+
+/* Modal Styles - Smooth Transitions */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal.show .modal-dialog {
+    transform: translateY(0);
+}
+
+.modal-content {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Modal header/footer/background theming is handled by
+   "Section 6. Modals" above (var(--surface) / var(--border-color)). */
+
+.modal-body img {
+    will-change: contents;
+}
+
+/* Ensure no layout thrashing */
+* {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+/* Compact table cell truncation for long titles/paths */
+.table td .text-truncate {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Limit the height of rows and ensure compact action buttons */
+.table td {
+    vertical-align: middle;
+}
+
+/* Compact dropdown trigger */
+.btn-group .btn-sm {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.85rem;
+}
+
+/* Metadata preformatted area */
+#metadataModalPre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   10. Global Wallpaper / Watermark
+   Enabled from Settings: <html> gets class "has-wallpaper" plus the
+   --wallpaper-url custom property (managed in static/js/app.js). The image
+   is painted as a FIXED FULL-VIEWPORT layer behind all content with a
+   low-opacity theme-aware overlay, acting as a subtle watermark while
+   keeping cards/text 100% readable on Dashboard, Admin, Detection, History…
+   -------------------------------------------------------------------------- */
+html.has-wallpaper body,
+html.has-wallpaper .main-content {
+    background: transparent;
+}
+
+html.has-wallpaper body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-image: var(--wallpaper-url);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+html.has-wallpaper body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-color: rgba(15, 23, 42, 0.85);
+}
+
+/* Theme-aware overlay strength */
+html[data-theme="dark"].has-wallpaper body::after {
+    background-color: rgba(15, 23, 42, 0.85);
+}
+
+html[data-theme="light"].has-wallpaper body::after {
+    background-color: rgba(248, 250, 252, 0.88);
+}
+
+html[data-theme="blue"].has-wallpaper body::after {
+    background-color: rgba(234, 241, 253, 0.88);
+}

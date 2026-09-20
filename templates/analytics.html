@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics | AI Accident Detection{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="d-flex gap-3 flex-wrap">
+            <div class="card p-3 shadow-sm" style="min-width: 180px;">
+                <div class="text-muted small">Total Detections</div>
+                <div class="h4 fw-bold">{{ total_detections }}</div>
+            </div>
+            <div class="card p-3 shadow-sm" style="min-width: 180px;">
+                <div class="text-muted small">Accidents</div>
+                <div class="h4 text-danger fw-bold">{{ accidents }}</div>
+            </div>
+            <div class="card p-3 shadow-sm" style="min-width: 180px;">
+                <div class="text-muted small">Non-Accidents</div>
+                <div class="h4 text-success fw-bold">{{ non_accidents }}</div>
+            </div>
+            <div class="card p-3 shadow-sm" style="min-width: 220px;">
+                <div class="text-muted small">Average Accident Confidence</div>
+                <div class="h4 fw-bold">{{ (avg_confidence * 100) | round(2) }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Daily Accidents (last 30 days)</h5>
+                        <div class="chart-container"><canvas id="dailyChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Weekly Accidents (last 12 weeks)</h5>
+                <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Monthly Accidents (last 12 months)</h5>
+                <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Severity Distribution</h5>
+                <div class="chart-container"><canvas id="severityChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Source Distribution</h5>
+                <div class="chart-container"><canvas id="sourceChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+
+<style>
+/* Chart container fixed sizing to prevent infinite growth */
+.chart-container { position: relative; height: 280px; width: 100%; }
+.card .card-body { overflow: hidden; }
+</style>
+
+<script>
+// Data passed from Flask
+const dailyLabels = {{ daily_labels | tojson | safe }};
+const dailyValues = {{ daily_values | tojson | safe }};
+const weeklyLabels = {{ weekly_labels | tojson | safe }};
+const weeklyValues = {{ weekly_values | tojson | safe }};
+const monthlyLabels = {{ monthly_labels | tojson | safe }};
+const monthlyValues = {{ monthly_values | tojson | safe }};
+
+const severityCounts = {{ severity_counts | tojson | safe }};
+const sourceCounts = {{ source_counts | tojson | safe }};
+
+function computeSuggestedMax(arr) {
+    if (!arr || !arr.length) return 3;
+    const max = Math.max(...arr.map(v => Number(v) || 0));
+    if (!isFinite(max)) return 3;
+    if (max <= 3) return Math.max(3, Math.ceil(max + 1));
+    return Math.ceil(max * 1.25);
+}
+
+function linearChartOptions(dataArray) {
+    const suggestedMax = computeSuggestedMax(dataArray);
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
+            y: {
+                beginAtZero: true,
+                suggestedMax: suggestedMax,
+                ticks: { precision: 0, stepSize: Math.max(1, Math.ceil(suggestedMax / 5)) }
+            }
+        }
+    };
+}
+
+function doughnutOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } }
+    };
+}
+
+// Daily chart
+new Chart(document.getElementById('dailyChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+        labels: dailyLabels,
+        datasets: [{ label: 'Accidents', data: dailyValues, backgroundColor: 'rgba(220,53,69,0.8)' }]
+    },
+    options: linearChartOptions(dailyValues)
+});
+
+// Weekly chart
+new Chart(document.getElementById('weeklyChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: weeklyLabels,
+        datasets: [{ label: 'Accidents', data: weeklyValues, borderColor: '#e55353', backgroundColor: 'rgba(229,83,83,0.12)', tension: 0.3, fill: true }]
+    },
+    options: linearChartOptions(weeklyValues)
+});
+
+// Monthly chart
+new Chart(document.getElementById('monthlyChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: monthlyLabels,
+        datasets: [{ label: 'Accidents', data: monthlyValues, borderColor: '#c82333', backgroundColor: 'rgba(200,40,60,0.08)', tension: 0.25, fill: true }]
+    },
+    options: linearChartOptions(monthlyValues)
+});
+
+// Severity doughnut
+new Chart(document.getElementById('severityChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: ['Low', 'Medium', 'High'], datasets: [{ data: [severityCounts.low || 0, severityCounts.medium || 0, severityCounts.high || 0], backgroundColor: ['#198754','#ffc107','#dc3545'] }] },
+    options: doughnutOptions()
+});
+
+// Source doughnut
+new Chart(document.getElementById('sourceChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(sourceCounts), datasets: [{ data: Object.values(sourceCounts), backgroundColor: ['#0d6efd', '#6f42c1', '#20c997', '#adb5bd'].slice(0, Object.keys(sourceCounts).length) }] },
+    options: doughnutOptions()
+});
+</script>
+
+{% endblock %}
