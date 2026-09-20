@@ -2,9 +2,14 @@
 
 import mimetypes
 import os
-from urllib.parse import unquote, urlparse
+import torch
 
+torch.set_num_threads(1)
+os.environ["OMP_NUM_THREADS"] = "1"
+
+from urllib.parse import unquote, urlparse
 from flask import Flask, Response, g, send_file, session
+
 from werkzeug.utils import secure_filename
 
 from config import Config
