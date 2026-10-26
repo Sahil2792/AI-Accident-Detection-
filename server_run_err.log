@@ -1,0 +1,30 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.33:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 723-320-775
+127.0.0.1 - - [26/Oct/2026 07:22:24] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:22:34] "GET /dashboard HTTP/1.1" 302 -
+127.0.0.1 - - [26/Oct/2026 07:22:34] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:22:45] "POST /login HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:22:45] "GET /dashboard HTTP/1.1" 302 -
+127.0.0.1 - - [26/Oct/2026 07:23:22] "POST /login HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:23:38] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [26/Oct/2026 07:23:38] "GET /dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:45] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:46] "GET /static/css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:46] "GET /static/js/app.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:46] "GET /static/wallpapers/wp7576888.jpg HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:46] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [26/Oct/2026 07:25:49] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [26/Oct/2026 07:25:49] "GET /dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:49] "GET /static/css/style.css HTTP/1.1" 304 -
+127.0.0.1 - - [26/Oct/2026 07:25:49] "GET /static/js/app.js HTTP/1.1" 304 -
+127.0.0.1 - - [26/Oct/2026 07:25:49] "GET /static/wallpapers/wp7576888.jpg HTTP/1.1" 304 -
+127.0.0.1 - - [26/Oct/2026 07:25:51] "GET /dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 07:25:51] "GET /static/css/style.css HTTP/1.1" 304 -
+127.0.0.1 - - [26/Oct/2026 07:25:51] "GET /static/js/app.js HTTP/1.1" 304 -
+127.0.0.1 - - [26/Oct/2026 07:25:51] "GET /static/wallpapers/wp7576888.jpg HTTP/1.1" 304 -
