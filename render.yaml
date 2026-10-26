@@ -1,0 +1,30 @@
+# Render.com blueprint for the AI Accident Detection app.
+# You can point Render at this file OR just replicate the settings below in the
+# dashboard. The critical bit for the FREE TIER (512 MB RAM) is the single
+# gunicorn worker: more workers = several copies of both YOLO models in memory,
+# which will OOM the instance.
+services:
+  - type: web
+    name: ai-accident-detection
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 900 --max-requests 1000 --max-requests-jitter 100
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MAX_INFERENCE_IMAGE_DIM
+        value: "1280"
+      - key: ROBUST_TTA
+        value: "0"
+      - key: ROBUST_MULTI_SCALE_SIZES
+        value: ""
+      - key: ROBUST_ENHANCE
+        value: "1"
+      - key: ROBUST_IMGSZ
+        value: "640"
+      - key: SECRET_KEY
+        generateValue: true

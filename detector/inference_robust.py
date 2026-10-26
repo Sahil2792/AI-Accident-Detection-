@@ -41,16 +41,24 @@ import torch
 
 # ---------------------------------------------------------------------------
 # Tunable defaults (each can be overridden with an environment variable)
+#
+# IMPORTANT (Render free-tier memory):
+# TTA and multi-scale inference multiply the number of forward passes (and the
+# peak memory) by several times.  They are now OFF by default so a single
+# 512 MB Render web process can run the dual-model pipeline without getting
+# OOM-killed.  Re-enable them in the Render dashboard only when you have a
+# larger instance / don't care about latency:
+#     ROBUST_TTA=1  ROBUST_MULTI_SCALE_SIZES=1280   # heavy/full-accuracy mode
 # ---------------------------------------------------------------------------
 ROBUST_CONF = float(os.environ.get("ROBUST_CONF", "0.15"))
 ROBUST_STANDARD_CONF = float(os.environ.get("ROBUST_STANDARD_CONF", "0.20"))
 ROBUST_IOU = float(os.environ.get("ROBUST_IOU", "0.45"))
-ROBUST_TTA = os.environ.get("ROBUST_TTA", "1").strip().lower() in ("1", "true", "yes", "on")
+ROBUST_TTA = os.environ.get("ROBUST_TTA", "0").strip().lower() in ("1", "true", "yes", "on")
 ROBUST_ENHANCE = os.environ.get("ROBUST_ENHANCE", "1").strip().lower() in ("1", "true", "yes", "on")
 ROBUST_IMGSZ = int(os.environ.get("ROBUST_IMGSZ", "640"))
 ROBUST_MULTI_SCALE_SIZES = tuple(
     int(part.strip())
-    for part in os.environ.get("ROBUST_MULTI_SCALE_SIZES", "1280").split(",")
+    for part in os.environ.get("ROBUST_MULTI_SCALE_SIZES", "").split(",")
     if part.strip().lstrip("-").isdigit()
 )
 

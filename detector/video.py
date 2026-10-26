@@ -226,34 +226,17 @@ class _TemporalAccidentConfirmer:
 
 
 def _load_yolo(model_path: str) -> YOLO:
-    """Load an Ultralytics YOLO model with torch compatibility handling.
+    """Load a YOLO model reusing the shared module-level cache.
 
-    The standard Ultralytics syntax ``YOLO(model_path)`` is used here. On newer
-    PyTorch versions (>= 2.6) ``torch.load`` defaults to ``weights_only=True``,
-    which can refuse YOLO checkpoints; we temporarily enable the legacy loader
-    exactly like the rest of the project does.
+    Delegates to ``detector.detect._load_yolo_model`` so the video, image and
+    webcam pipelines all share ONE copy of each model in memory (the loader
+    already handles the torch ``weights_only`` compatibility).  Loading the
+    same weights again per video (as this module historically did) doubles peak
+    RAM per request and is the fastest way to OOM a 512 MB Render free process.
     """
-    import torch
-    from ultralytics.nn.tasks import DetectionModel
+    from detector.detect import _load_yolo_model
 
-    original_torch_load = torch.load
-
-    def load_with_compatibility(*args, **kwargs):
-        kwargs.setdefault("weights_only", False)
-        return original_torch_load(*args, **kwargs)
-
-    safe_globals = getattr(torch.serialization, "safe_globals", None)
-    try:
-        torch.load = load_with_compatibility
-        if safe_globals is not None:
-            with safe_globals([DetectionModel]):
-                return YOLO(model_path)
-        add_safe_globals = getattr(torch.serialization, "add_safe_globals", None)
-        if add_safe_globals is not None:
-            add_safe_globals([DetectionModel])
-        return YOLO(model_path)
-    finally:
-        torch.load = original_torch_load
+    return _load_yolo_model(model_path)
 
 
 def _load_accident_model() -> YOLO:

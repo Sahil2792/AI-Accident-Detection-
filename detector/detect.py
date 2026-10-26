@@ -1,5 +1,6 @@
 """Dual-model detection pipeline: standard YOLO (object counting) + custom accident model."""
 
+import gc
 import os
 from typing import Any, Dict, List, Tuple
 
@@ -134,11 +135,25 @@ SUMMARY_CLASS_ORDER = (
 _MODEL_CACHE: Dict[str, Any] = {}
 
 
+def _limit_inference_threads() -> None:
+    """Keep PyTorch/OpenCV single-threaded so one 512 MB process never spawns
+    a wall of worker threads (each with its own stack + OpenMP arena)."""
+    try:
+        torch.set_num_threads(1)
+    except Exception:
+        pass
+    try:
+        cv2.setNumThreads(1)
+    except Exception:
+        pass
+
+
 def _load_yolo_model(model_path: str) -> Any:
     """Load a YOLO model with torch compatibility handling and caching."""
     if model_path in _MODEL_CACHE:
         return _MODEL_CACHE[model_path]
 
+    _limit_inference_threads()
     original_torch_load = torch.load
 
     def load_with_compatibility(*args, **kwargs):
@@ -744,6 +759,10 @@ def detect_objects(
         allowed_classes=STANDARD_OBJECT_CLASSES,
         source_model="yolov8n.pt",
     )
+    # Free the bulky raw ultralytics Results buffers before loading the next
+    # model pass - on a 512 MB container every megabyte matters.
+    del standard_raw, standard_results
+    gc.collect()
 
     # Step 2: Run custom accident model to detect genuine accidents.
     # Robust inference: dynamically lowered confidence (0.15), NMS IoU 0.45,
@@ -765,6 +784,8 @@ def detect_objects(
         allowed_classes=ACCIDENT_CLASSES,
         source_model=os.path.basename(resolve_model_path(model_path)),
     )
+    del accident_raw, accident_results
+    gc.collect()
 
     # Step 3: Strictly validate accident predictions. A box is only kept as an
     # "accident" if its confidence is strictly above 0.75 OR it overlaps with

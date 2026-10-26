@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 from database.init_db import get_connection
 from pathlib import Path
 from utils.auth import login_required
-from detector.image import process_image
+from detector.image import process_image, prepare_image_for_inference
 from detector.annotate import save_detected_image
 from detector.video import process_video as process_video_yolo
 from detector.severity import classify_severity
@@ -547,6 +547,36 @@ def dashboard():
     )
 
 
+@main_bp.route("/api/health")
+def health_api():
+    """Lightweight JSON health check for Render uptime monitors.
+
+    Returns 200 immediately without loading any model so it can detect a dead
+    process long before a request would time out.
+    """
+    return jsonify({"status": "ok", "success": True})
+
+
+@main_bp.route("/api/wallpapers")
+def wallpapers_api():
+    """List the wallpaper images shipped with the repo (static/wallpapers/).
+
+    The frontend uses this list to validate any wallpaper URL saved in
+    ``localStorage`` and drops stale ones (uploaded on another machine and never
+    committed).  That way the browser never requests a missing wallpaper file,
+    which is exactly what used to flood Render's logs with 404s.
+    """
+    wallpapers_dir = os.path.join(current_app.static_folder, "wallpapers")
+    files: list = []
+    try:
+        for name in sorted(os.listdir(wallpapers_dir)):
+            if name.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
+                files.append(name)
+    except OSError:
+        files = []
+    return jsonify({"files": files, "success": True})
+
+
 @main_bp.route("/image")
 @login_required
 def image_detection():
@@ -559,14 +589,14 @@ def image_detection():
 def detect_image_api():
     """Handle image upload and return YOLO detection results."""
     if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+        return jsonify({"success": False, "error": "No file provided"}), 400
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+        return jsonify({"success": False, "error": "No file selected"}), 400
 
     if not allowed_image_file(file.filename):
-        return jsonify({"error": "Invalid file format. Allowed: jpg, jpeg, png, bmp, gif, webp"}), 400
+        return jsonify({"success": False, "error": "Invalid file format. Allowed: jpg, jpeg, png, bmp, gif, webp"}), 400
 
     try:
         upload_folder = current_app.config["UPLOAD_FOLDER"]
@@ -579,6 +609,18 @@ def detect_image_api():
         unique_filename = f"{timestamp}_{filename}"
         upload_path = os.path.join(upload_folder, unique_filename)
         file.save(upload_path)
+
+        # Downscale oversized uploads BEFORE YOLO runs so PyTorch never has to
+        # allocate huge letterbox buffers on the 512 MB Render free tier.
+        try:
+            upload_path, _resized = prepare_image_for_inference(
+                upload_path,
+                max_dim=current_app.config.get("MAX_INFERENCE_IMAGE_DIM"),
+            )
+        except Exception:
+            # If the pre-processor fails for any reason, keep the original file;
+            # the detector itself still has graceful fallbacks.
+            pass
 
         start_time = time.time()
         detection_results = process_image(
@@ -642,8 +684,20 @@ def detect_image_api():
             }
         )
 
+    except MemoryError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "The server's free-tier instance ran out of memory while processing this image. Please try a smaller image or retry later.",
+            }
+        ), 500
     except Exception as e:
-        return jsonify({"error": f"Detection failed: {str(e)}"}), 500
+        return jsonify(
+            {
+                "success": False,
+                "error": f"Detection failed: {str(e)}",
+            }
+        ), 500
 
 
 @main_bp.route("/api/detect-video", methods=["POST"])
@@ -651,14 +705,14 @@ def detect_image_api():
 def detect_video_api():
     """Handle video upload, run dual-model detection, and persist to history."""
     if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+        return jsonify({"success": False, "error": "No file provided"}), 400
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+        return jsonify({"success": False, "error": "No file selected"}), 400
 
     if not allowed_video_file(file.filename):
-        return jsonify({"error": "Invalid file format. Allowed: mp4, avi, mov, mkv, flv"}), 400
+        return jsonify({"success": False, "error": "Invalid file format. Allowed: mp4, avi, mov, mkv, flv"}), 400
 
     try:
         upload_folder = current_app.config["UPLOAD_FOLDER"]
@@ -717,8 +771,20 @@ def detect_video_api():
             }
         )
 
+    except MemoryError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "The server's free-tier instance ran out of memory while processing this video. Please try a shorter/smaller video or retry later.",
+            }
+        ), 500
     except Exception as e:
-        return jsonify({"error": f"Video detection failed: {str(e)}"}), 500
+        return jsonify(
+            {
+                "success": False,
+                "error": f"Video detection failed: {str(e)}",
+            }
+        ), 500
 
 
 @main_bp.route("/video")

@@ -77,6 +77,44 @@ document.addEventListener('DOMContentLoaded', function () {
     window.closeModal = closeModal;
     window.openModal = openModal;
 // ------------------------------------------------------------------
+    // API JSON parsing helper - NEVER let a broken/empty/HTML response crash
+    // the detection UI.  The backend now always returns JSON, but on Render's
+    // free tier the worker can still be OOM-killed / restarted mid-request,
+    // which previously produced an empty body and the aggressive
+    //   "Failed to execute 'json' on 'Response': Unexpected end of JSON input"
+    // browser error.
+    // ------------------------------------------------------------------
+    async function parseApiResponse(resp) {
+        let text = '';
+        if (resp && typeof resp.text === 'function') {
+            try { text = await resp.text(); } catch (e) { text = ''; }
+        }
+        let data = null;
+        try {
+            data = text ? JSON.parse(text) : null;
+        } catch (e) {
+            data = null;
+        }
+        const ok = resp && resp.ok;
+        if (!data) {
+            const status = resp ? resp.status : 0;
+            let error = '';
+            if (status === 413) {
+                error = 'File is too large. Maximum allowed size is 16 MB.';
+            } else if (status === 401 || status === 302) {
+                error = 'Your session has expired. Please log in again.';
+            } else if (status === 500) {
+                error = 'The server hit an internal error. Please try a smaller file or retry later.';
+            } else if (status === 0) {
+                error = 'Network error - the server did not respond (it may have restarted or run out of memory). Please retry.';
+            } else {
+                error = `Server returned an unexpected response (HTTP ${status || 'unknown'}). Please retry.`;
+            }
+            return { ok: false, data: { success: false, error: error } };
+        }
+        return { ok: ok, data: data };
+    }
+// ------------------------------------------------------------------
     // Generic modal close handler: every × button inside any Bootstrap modal
     // (History preview/details, recording review, detection popups, etc.)
     // explicitly hides its `.modal` container. Guarantees popups always close
@@ -126,18 +164,61 @@ document.addEventListener('DOMContentLoaded', function () {
         if (themeToggle) {
             themeToggle.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
         }
-        // apply wallpaper if present — ALL themes; the CSS overlay keeps it subtle
+    }
+
+    // ------------------------------------------------------------------
+    // Wallpaper handling - VALIDATED so a stale local URL can never hit a
+    // missing static/wallpapers file (those used to flood Render's logs with
+    // 404s).  The server publishes the actual file list at /api/wallpapers and
+    // we only apply a stored URL when its filename is in that list.
+    // ------------------------------------------------------------------
+    function applyWallpaperUrl(wp) {
         try {
-            const wp = localStorage.getItem(WALLPAPER_KEY);
-            if (wp) {
-                document.documentElement.style.setProperty('--wallpaper-url', `url('${wp}')`);
-                document.documentElement.classList.add('has-wallpaper');
-            } else {
-                document.documentElement.style.removeProperty('--wallpaper-url');
-                document.documentElement.classList.remove('has-wallpaper');
-            }
+            document.documentElement.style.setProperty('--wallpaper-url', `url('${wp}')`);
+            document.documentElement.classList.add('has-wallpaper');
+        } catch (e) { /* ignore */ }
+    }
+
+    function clearWallpaper() {
+        try {
+            document.documentElement.style.removeProperty('--wallpaper-url');
+            document.documentElement.classList.remove('has-wallpaper');
+        } catch (e) { /* ignore */ }
+    }
+
+    let _availableWallpapers = null;
+    async function fetchAvailableWallpapers() {
+        if (_availableWallpapers) return _availableWallpapers;
+        try {
+            const resp = await fetch('/api/wallpapers', { cache: 'no-store' });
+            const parsed = await parseApiResponse(resp);
+            const names = parsed.data && Array.isArray(parsed.data.files) ? parsed.data.files : [];
+            _availableWallpapers = names.map(function (n) { return String(n).toLowerCase(); });
         } catch (e) {
-            // ignore storage errors
+            _availableWallpapers = [];
+        }
+        return _availableWallpapers;
+    }
+
+    async function initWallpaper() {
+        let wp = null;
+        try { wp = localStorage.getItem(WALLPAPER_KEY); } catch (e) { wp = null; }
+        if (!wp) { clearWallpaper(); return; }
+
+        const allowed = await fetchAvailableWallpapers();
+        // If the listing failed to load, apply the stored URL as a last resort
+        // (one possible 404 instead of a broken feature).
+        if (allowed.length === 0) {
+            applyWallpaperUrl(wp);
+            return;
+        }
+        const name = String(wp.split('/').pop() || wp).toLowerCase();
+        if (allowed.indexOf(name) !== -1) {
+            applyWallpaperUrl(wp);
+        } else {
+            // Stale URL (wallpaper was uploaded on another machine / not committed).
+            try { localStorage.removeItem(WALLPAPER_KEY); } catch (e) { }
+            clearWallpaper();
         }
     }
 
@@ -146,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try { saved = localStorage.getItem(THEME_KEY); } catch (e) { saved = null; }
     const initialTheme = saved || (html.getAttribute('data-theme') || 'light');
     setTheme(initialTheme);
+    initWallpaper();
 
     // keep the Settings dropdown in sync with the active theme
     if (themeSelect) {
@@ -452,6 +534,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Never show a broken wallpaper thumbnail: if the saved URL no longer
+    // exists on this server it just hides the preview (no console 404 noise).
+    if (wallpaperPreview) {
+        wallpaperPreview.onerror = function () {
+            this.classList.add('d-none');
+            this.removeAttribute('src');
+        };
+    }
+
     // initialize wallpaper preview if set
     try {
         const wp = localStorage.getItem(WALLPAPER_KEY);
@@ -584,9 +675,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: formData
                 });
 
-                const data = await response.json();
+                const parsed = await parseApiResponse(response);
+                const data = parsed.data;
 
-                if (data.success) {
+                if (data && data.success) {
                     const statusValue = document.getElementById('statusValue');
                     const confidenceValue = document.getElementById('confidenceValue');
                     const severityValue = document.getElementById('severityValue');
@@ -803,8 +895,9 @@ document.addEventListener('DOMContentLoaded', function () {
             try {
                 const source = getCameraSource();
                 const response = await fetch(`/stop_webcam?source=${encodeURIComponent(source)}`);
-                const data = await response.json();
-                if (data.success && data.summary) {
+                const parsed = await parseApiResponse(response);
+                const data = parsed.data;
+                if (data && data.success && data.summary) {
                     const summary = data.summary;
                     if (fpsValue) fpsValue.textContent = summary.average_fps ? summary.average_fps.toFixed(1) : '0';
                     if (objectsValue) objectsValue.textContent = summary.total_objects_detected || 0;
@@ -861,8 +954,9 @@ document.addEventListener('DOMContentLoaded', function () {
         async function fetchStats() {
             try {
                 const response = await fetch('/webcam_stats');
-                const data = await response.json();
-                if (data.success) {
+                const parsed = await parseApiResponse(response);
+                const data = parsed.data;
+                if (data && data.success) {
                     if (fpsValue) fpsValue.textContent = data.fps ? data.fps.toFixed(1) : '0';
                     if (objectsValue) objectsValue.textContent = data.total_objects || 0;
                     if (framesValue) framesValue.textContent = data.frame_count || 0;
@@ -925,9 +1019,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: formData
                 });
 
-                const data = await response.json();
+                const parsed = await parseApiResponse(response);
+                const data = parsed.data;
 
-                if (data.success) {
+                if (data && data.success) {
                     progressBar.style.width = '100%';
 
                     const accidentIncidents = data.accident_incidents !== undefined

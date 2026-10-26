@@ -8,7 +8,7 @@ torch.set_num_threads(1)
 os.environ["OMP_NUM_THREADS"] = "1"
 
 from urllib.parse import unquote, urlparse
-from flask import Flask, Response, g, send_file, session
+from flask import Flask, Response, g, jsonify, request, send_file, session
 
 from werkzeug.utils import secure_filename
 
@@ -144,6 +144,44 @@ def create_app() -> Flask:
     seed_demo_data(app.config["DATABASE_PATH"])
 
     app.register_blueprint(main_bp)
+
+    # ------------------------------------------------------------------
+    # Global error handling - JSON for /api/* routes, normal pages otherwise.
+    #
+    # Before this was added, any unhandled error on an API route produced an
+    # HTML error page (or an empty body when the worker died / was restarted),
+    # and the frontend's `response.json()` crashed with
+    #   "Unexpected end of JSON input".
+    # ------------------------------------------------------------------
+    @app.errorhandler(404)
+    def _handle_404(error):
+        if request.path.startswith("/api/"):
+            return jsonify({"success": False, "error": "Resource not found."}), 404
+        return error.get_response()
+
+    @app.errorhandler(405)
+    def _handle_405(error):
+        if request.path.startswith("/api/"):
+            return jsonify({"success": False, "error": "Method not allowed."}), 405
+        return error.get_response()
+
+    @app.errorhandler(413)
+    def _handle_413(error):
+        if request.path.startswith("/api/"):
+            return jsonify(
+                {"success": False, "error": "Upload too large. Maximum allowed size is 16 MB."}
+            ), 413
+        return error.get_response()
+
+    @app.errorhandler(Exception)
+    def _handle_unhandled(error):
+        app.logger.exception("Unhandled exception: %s", error)
+        if request.path.startswith("/api/"):
+            return jsonify(
+                {"success": False, "error": "Internal server error. Please try again."}
+            ), 500
+        detail = f"<pre>{type(error).__name__}: {error}</pre>" if app.debug else ""
+        return f"<h1>500 Internal Server Error</h1><p>Something went wrong on our end.</p>{detail}", 500
 
     @app.before_request
     def load_current_user() -> None:

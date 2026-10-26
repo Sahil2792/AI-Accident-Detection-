@@ -1,5 +1,7 @@
 """Image inference module using the dual-model YOLO pipeline."""
 
+import gc
+
 from detector.detect import (
     STANDARD_MODEL_PATH,
     build_detection_summary_text,
@@ -9,7 +11,19 @@ from detector.detect import (
     generate_detection_summary,
     resolve_model_path,
 )
+from detector.preprocess import downscale_image_if_needed
 from detector.severity import classify_severity
+
+
+def prepare_image_for_inference(image_path: str, max_dim: int | None = None):
+    """Downscale an oversized upload in place so it fits in the inference
+    tensor without blowing up memory on a 512 MB host.
+
+    Returns the (possibly rewritten) path plus a change flag.  Coordinates stay
+    aligned because both inference and annotation operate on the same file that
+    is on disk after this call.
+    """
+    return downscale_image_if_needed(image_path, max_dim=max_dim)
 
 
 def _empty_image_result(image_path: str, model_path: str | None = None):
@@ -66,4 +80,7 @@ def process_image(
         model_path,
         accident_confidence_threshold=accident_confidence_threshold,
     )
-    return result if isinstance(result, dict) else _empty_image_result(image_path, model_path)
+    if not isinstance(result, dict):
+        result = _empty_image_result(image_path, model_path)
+    gc.collect()
+    return result

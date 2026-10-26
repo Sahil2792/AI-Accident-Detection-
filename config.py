@@ -20,3 +20,8 @@ class Config:
     RESULT_FOLDER = os.path.join(BASE_DIR, "static", "results")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     JSON_SORT_KEYS = False
+
+    # Images whose longest edge exceeds this are downscaled before YOLO
+    # inference so the 512 MB Render free tier never runs out of memory.
+    # Override with MAX_INFERENCE_IMAGE_DIM.
+    MAX_INFERENCE_IMAGE_DIM = int(os.environ.get("MAX_INFERENCE_IMAGE_DIM", "1280"))

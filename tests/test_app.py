@@ -197,6 +197,7 @@ def test_image_detection_saves_user_owned_history(monkeypatch):
 
 
 def test_determine_accident_status_uses_confidence_threshold():
+    # threshold=0.5 is used as-is (clamped to [0,1]); a 0.61 accident crosses it.
     result = detect_module.determine_accident_status(
         [
             {'class_name': 'accident', 'confidence': 0.61},
@@ -205,9 +206,17 @@ def test_determine_accident_status_uses_confidence_threshold():
         confidence_threshold=0.5,
     )
 
-    assert result['status'] == 'Non-Accident'
+    assert result['status'] == 'Accident'
     assert result['confidence'] == 0.61
-    assert result['threshold'] == 0.7
+    assert result['threshold'] == 0.5
+
+    # Below the threshold the same detector stays "Non-Accident".
+    result_low = detect_module.determine_accident_status(
+        [{'class_name': 'accident', 'confidence': 0.45}],
+        confidence_threshold=0.5,
+    )
+    assert result_low['status'] == 'Non-Accident'
+    assert result_low['threshold'] == 0.5
 
 
 def test_stop_webcam_saves_history_once(monkeypatch):
@@ -419,3 +428,67 @@ def test_delete_detection_with_sqlite_row():
     row = conn.execute("SELECT * FROM recordings WHERE id = ?", (recording_id,)).fetchone()
     conn.close()
     assert row is None
+
+
+def test_api_404_returns_json_never_html():
+    """Any missing /api/* route must return JSON (the old HTML 404 crashed the
+    frontend's response.json())."""
+    client = app.test_client()
+    response = client.get('/api/does-not-exist')
+    assert response.status_code == 404
+    assert response.is_json
+    payload = response.get_json()
+    assert payload['success'] is False
+    assert payload['error']
+
+
+def test_health_endpoint_publishes_status_json():
+    client = app.test_client()
+    response = client.get('/api/health')
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['status'] == 'ok'
+    assert payload['success'] is True
+
+
+def test_wallpapers_endpoint_lists_committed_files():
+    client = app.test_client()
+    response = client.get('/api/wallpapers')
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['success'] is True
+    assert isinstance(payload['files'], list)
+    assert 'wp7576888.jpg' in payload['files']
+
+
+def test_large_upload_is_downscaled_before_inference(tmp_path):
+    """Oversized photos must be downscaled so YOLO never OOMs the free tier."""
+    import cv2
+    import numpy as np
+    from detector.preprocess import downscale_image_if_needed
+
+    big = np.zeros((2000, 1000, 3), dtype=np.uint8)
+    path = str(tmp_path / 'big.jpg')
+    cv2.imwrite(path, big)
+
+    result_path, changed = downscale_image_if_needed(path, max_dim=640)
+    assert changed is True
+    img = cv2.imread(result_path)
+    assert max(img.shape[:2]) <= 640
+
+
+def test_small_image_is_not_touched(tmp_path):
+    from detector.preprocess import downscale_image_if_needed
+    import cv2
+    import numpy as np
+
+    small = np.zeros((320, 240, 3), dtype=np.uint8)
+    path = str(tmp_path / 'small.jpg')
+    cv2.imwrite(path, small)
+    before = open(path, 'rb').read()
+
+    result_path, changed = downscale_image_if_needed(path, max_dim=640)
+    assert changed is False
+    assert result_path == path
+    assert open(path, 'rb').read() == before
+
